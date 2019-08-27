@@ -1,0 +1,7 @@
+<launch>
+    <node pkg="draw_line" type="drawLine" name="drawLine" output="screen"/>
+    <node pkg="usb_cam" type="img_publisher" name="img_publisher" output="screen"/>
+    <node pkg="vslam" type="vslam" name="vslam" output="screen"/>
+    <!--<node pkg="vslam" type="record" name="record" output="screen"/>-->
+    
+</launch>
