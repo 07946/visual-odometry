@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(usb_cam)
-set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev)
+set(OpenCV_DIR /usr/share/OpenCV/)
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 

@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(vslam)
 
-set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev)
-## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+set(OpenCV_DIR /usr/share/OpenCV/)
+
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -212,13 +211,5 @@ add_executable(record
 )
 add_dependencies(record ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(record
-  ${catkin_LIBRARIES}
-)
-
-add_executable(surfTest
-  src/surfTest.cpp
-)
-add_dependencies(surfTest ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(surfTest
   ${catkin_LIBRARIES}
 )

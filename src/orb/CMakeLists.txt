@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(orb)
 
-## Compile as C++11, supported in ROS Kinetic and newer
+## Compile as C++11, supported in ROS melodic and newer
 # add_compile_options(-std=c++11)
-set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev)
+set(OpenCV_DIR /usr/share/OpenCV/)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
