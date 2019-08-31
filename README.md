@@ -9,5 +9,4 @@
 - 插上usb摄像头后。运行rviz，然后运行以下代码
 
   ```roslaunch vslam launchTest.launch```
-
-
+- 如出错需要安装find_object_2d信赖。[参考网址](http://wiki.ros.org/find_object_2d)
