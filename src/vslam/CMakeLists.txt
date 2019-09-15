@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(vslam)
 
 set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev)
+set(CMAKE_CXX_FLAGS "-std=c++0x")
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
@@ -215,10 +216,26 @@ target_link_libraries(record
   ${catkin_LIBRARIES}
 )
 
-add_executable(surfTest
-  src/surfTest.cpp
+add_executable(ransac
+  src/ransac.cpp
 )
-add_dependencies(surfTest ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(surfTest
+add_dependencies(ransac ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(ransac
+  ${catkin_LIBRARIES}
+)
+
+add_executable(origin
+  src/origin.cpp
+)
+add_dependencies(origin ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(origin
+  ${catkin_LIBRARIES}
+)
+
+add_executable(vslam2
+  src/vslam2.cpp
+)
+add_dependencies(vslam2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(vslam2
   ${catkin_LIBRARIES}
 )

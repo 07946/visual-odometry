@@ -220,3 +220,11 @@ target_link_libraries(img_viewer
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
+
+add_executable(img_publisher2
+  src/img_publisher2.cpp
+)
+add_dependencies(img_publisher2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(img_publisher2
+  ${catkin_LIBRARIES}
+)

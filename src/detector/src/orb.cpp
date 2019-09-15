@@ -34,7 +34,7 @@ Point aculatePoint(Point p1,Point p2,double rad,int cols,int rows)
 }
 
 
-//返回最小转向角
+//返回最小转向角,
 //比如右转270度转换成左转90
 float minAngle(float angle)
 {
@@ -98,6 +98,9 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    cv::TickMeter tm;
+   tm.reset();
+   tm.start();
     //初始化
     vector<KeyPoint> keypoints1, keypoints2;
     Mat descriptors1, descriptors2;
@@ -118,7 +121,9 @@ int main(int argc, char** argv)
     vector<DMatch> matches;
     BFMatcher matcher(NORM_HAMMING );
     matcher.match (descriptors1, descriptors2,matches);
-
+    ROS_INFO("cnt=%ld",matches.size());
+    tm.stop();
+    ROS_INFO("orb_time=%lf",tm.getTimeSec());
     //-- 第四步:匹配点对筛选，并取中间三分这部分计算旋转散席
     double min_dist=10000;
     int minDex=0;

@@ -5,16 +5,14 @@
 //#include <std_msgs/Float32.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
-#include <random>
-#include<algorithm>
 using namespace cv;
 using namespace std;
 
 ros::Publisher pub;
 vslam::position cam_pos;
 Point savePoint=Point(0,0);
-int lenx=640;//640
-int leny=480;//480
+int lenx=640;
+int leny=480;
 //存储某个坐标的信息，以后使用
 struct myMap
 {
@@ -33,9 +31,9 @@ struct simpleDate
 };
 
 
-struct sortData
+struct sortAngle
 {
-    double data;
+    double angle;
     int index;
     
 };
@@ -77,7 +75,7 @@ double deg2rad(float angle)
 int saveData(Point p,float angle)
 {
     ofstream outFile;
-    outFile.open("/home/lq/Pictures/point.txt",ios::app);
+    outFile.open("/home/lq/Pictures/originD.txt",ios::app);
     if (!outFile.is_open()){
 		cout << "open File Failed." << endl;
 		return -1;
@@ -103,21 +101,23 @@ int readData(Point &p,float &angle)
     inFile.close();
 }
 //自定义排序函数  
-bool sortFun(const sortData &a1, const sortData &a2)
+bool sortFun(const sortAngle &a1, const sortAngle &a2)
 {
-	return a1.data < a2.data;//升序排列  
+	return a1.angle < a2.angle;//升序排列  
 }
 
-
-//滑动窗口滤波后返回索引
-int windowFilter(vector<sortData> &v,int wlen)
+//滑动窗口滤波后返回平均值
+float windowFilter(vector<float> &v)
 {
+    //滑动窗口滤波
+    sort(v.begin(),v.end());
+    int wlen=(v.size()+2)/3;
     float minErr=10000.0;
     float minErrIdx=0;
 
     for(int i=0;i<v.size()-wlen;i++)
     {
-        float err=v[i+wlen-1].data-v[i].data;
+        float err=v[i+wlen-1]-v[i];
         //ROS_INFO("acc=%f",accum);
         if(minErr>err)
         {
@@ -125,8 +125,13 @@ int windowFilter(vector<sortData> &v,int wlen)
             minErrIdx=i;
         }
     }
-    return minErrIdx;
+    float sum=0;
+    for(int i=minErrIdx;i<minErrIdx+wlen;i++)
+        sum+=v[i];
+    return sum/wlen;
+
 }
+
 
 int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &keypoints2,Mat &descriptors2,vector< DMatch > &good_matches, myMap &map)
 {  
@@ -150,21 +155,32 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     }
     // 当描述子之间的距离大于两倍的最小距离时,即认为匹配有误。
     // 但有时候最小距离会非常小,设置一个经验值作为下限。
-    vector<sortData>radVector;
+    vector<sortAngle>radVector;
     
     for ( int i = 0; i < descriptors1.rows; i++ )
     {
-        if ( matches[i].distance <= max( 2*min_dist,50.0 ) )//5 效果好但要求特征明显，30角度可以，但位移不行
+        if ( matches[i].distance <= max( 2*min_dist,43.0 ) )//5 效果好但要求特征明显，30角度可以，但位移不行
         {
-            //good_matches.push_back ( matches[i] );
-            sortData sa;
-            sa.data=minAngle(keypoints2[matches[i].trainIdx].angle-keypoints1[matches[i].queryIdx].angle); 
+            good_matches.push_back ( matches[i] );
+            sortAngle sa;
+            sa.angle=minAngle(keypoints2[matches[i].trainIdx].angle-keypoints1[i].angle); 
             sa.index=i;
             radVector.push_back(sa);
             //ROS_INFO("rotate=%f",sa.angle);
-            //ROS_INFO("QURE=%d",matches[i].queryIdx);
         }
     }
+
+    for(int i=0;i<radVector.size();i++)
+    {
+
+        Point p=easyTf(keypoints1[good_matches[i].queryIdx].pt,keypoints2[good_matches[i].trainIdx].pt,deg2rad(radVector[i].angle),lenx,leny);
+        saveData(p,radVector[i].angle);
+        //ROS_INFO("(%.0lf,%.0lf),(%d,%d),%d",keypoints1[j].pt.x,keypoints1[j].pt.y,p.x,p.y,j);
+    }
+    
+
+
+
     //滑动窗口滤波
     
     if(radVector.size()==0)
@@ -174,89 +190,54 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     }
     sort(radVector.begin(),radVector.end(),sortFun);
     for(int i=0;i<radVector.size();i++)
-        ROS_INFO("rotate=%f",radVector[i].data);
+        ROS_INFO("rotate=%f",radVector[i].angle);
 
-    int wlen=(radVector.size()+1)/2;//加2是为了比如只有1个特征点，长度为1
-    float minErrIdx=windowFilter(radVector,wlen);
+    int wlen=(radVector.size()+2)/3;
+    float minErr=10000.0;
+    
+    float minErrIdx=0;
 
-    vector< DMatch > goodA_matches;
+    
+    for(int i=0;i<radVector.size()-wlen;i++)
+    {
+        float err=radVector[i+wlen-1].angle-radVector[i].angle;
+        //ROS_INFO("rotate=%f",err);
+        if(minErr>err)
+        {
+            minErr=err;
+            minErrIdx=i;
+        }
+    }
+    //ROS_INFO("rotate=%f",radVector[radVector.size()].angle-radVector[i].angle);
+
+    //计算平均旋转角
+    float rotateMean=0;
+    for(int i=minErrIdx;i<minErrIdx+wlen;i++)
+        rotateMean+=radVector[i].angle;
+    rotateMean/=wlen;
+    //ROS_INFO("acc=%f",minErr);
+
+
     for(int i=0;i<wlen;i++)
     {
-        goodA_matches.push_back(matches[radVector[minErrIdx+i].index]);
+        //good_matches.push_back(matches[radVector[minErrIdx+i].index]);
         //ROS_INFO("deg=%f,indx=%d",radVector[minErrIdx+i].angle*180/3.14159,radVector[minErrIdx+i].index);
     }
         
-
+    map.angle+=rotateMean;//全局旋转角
+    ROS_INFO("rotateAngle=%f,realAngle=%f",rotateMean,map.angle);
 
     //计算前后两个图的相对位移，其相对位移等于第二个图的坐标原点在第一个图的坐标
-
-    vector<sortData>dxVector;
-    vector<sortData>dyVector;
-    for(int i=0;i<goodA_matches.size();i++)
+    Point tempPint=Point(0,0);
+    for(int i=0;i<wlen;i++)
     {
-        sortData dx;
-        sortData dy;
 
-        double angle=minAngle(keypoints2[goodA_matches[i].trainIdx].angle-keypoints1[goodA_matches[i].queryIdx].angle);
-        Point p=easyTf(keypoints1[goodA_matches[i].queryIdx].pt,keypoints2[goodA_matches[i].trainIdx].pt,deg2rad(angle),lenx,leny);
-        dx.data=p.x;
-        dx.index=i;
-        dy.data=p.y;
-        dy.index=i;
-        dxVector.push_back(dx);
-        dyVector.push_back(dy);
-
-        ROS_INFO("(%d,%d)",p.x,p.y);
-        //ROS_INFO("QURE=%d",good_matches[i].queryIdx);
-
+        Point p=easyTf(keypoints1[good_matches[i].queryIdx].pt,keypoints2[good_matches[i].trainIdx].pt,deg2rad(rotateMean),lenx,leny);
+        //ROS_INFO("(%.0lf,%.0lf),(%d,%d),%d",keypoints1[j].pt.x,keypoints1[j].pt.y,p.x,p.y,j);
+        tempPint+=p;
     }
 
-    //分别对x和y用滑动窗口滤除
-    sort(dxVector.begin(),dxVector.end(),sortFun);
-    // for(int i=0;i<dxVector.size();i++)
-    //     ROS_INFO("dx=%f",dxVector[i].data);
-    
-    //vector< DMatch > goodX_matches;
-    int xlen=(dxVector.size()*2+1)/3;//加2是为了比如只有1个特征点，长度为1
-    int minDxIdx=windowFilter(dxVector,xlen);
-    vector<sortData>dyVector2;
-    double rx=0;
-    for(int i=0;i<xlen;i++)
-    {
-        //goodX_matches.push_back(goodA_matches[dxVector[minDxIdx+i].index]);
-        dyVector2.push_back(dyVector[dxVector[minDxIdx+i].index]);
-        ROS_INFO("dx=%f",dxVector[minDxIdx+i].data);
-        rx+=dxVector[minDxIdx+i].data;
-        //ROS_INFO("deg=%f,indx=%d",radVector[minErrIdx+i].angle*180/3.14159,radVector[minErrIdx+i].index);
-    }
-    
-    sort(dyVector2.begin(),dyVector2.end(),sortFun);
-    // for(int i=0;i<dyVector2.size();i++)
-    //     ROS_INFO("dy=%f",dyVector2[i].data);
-    
-    int ylen=(dyVector2.size()*2+1)/3;//加2是为了比如只有1个特征点，长度为1
-    int minDyIdx=windowFilter(dyVector2,ylen);
-    double rAngle=0;
-    
-    double ry=0;
-    for(int i=0;i<ylen;i++)
-    {
-        good_matches.push_back(goodA_matches[dyVector2[minDyIdx+i].index]);
-        ROS_INFO("dy=%f",dyVector2[minDyIdx+i].data);
-        
-        ry+=dyVector2[minDyIdx+i].data;
-        //ROS_INFO("deg=%f,indx=%d",radVector[minErrIdx+i].angle*180/3.14159,radVector[minErrIdx+i].index);
-    }
-    for(int i=0;i<ylen;i++)
-        rAngle+=minAngle(keypoints2[good_matches[i].trainIdx].angle-keypoints1[good_matches[i].queryIdx].angle);
-    rx/=xlen;
-    ry/=ylen;
-    rAngle/=ylen;
-
-    map.angle=rAngle;
-    Point drift;//位移
-    drift.x=rx;
-    drift.y=ry;
+    Point drift=tempPint/wlen;//位移
     //把第二个图的坐标原点在第一个图的坐标转换成世界坐标
     map.point=easyTf(mapVector[mapVector.size()-1].point,drift,deg2rad(map.angle),0,0);;
     // map.keypoint.assign(keypoints2.begin(),keypoints2.end());//复制角点到kt
@@ -264,6 +245,8 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     ROS_INFO("drift=(%d,%d),pos=(%d,%d)",drift.x,drift.y,map.point.x,map.point.y);
 
 }
+
+
 
 
 vector<KeyPoint> keypointsLast;
@@ -294,7 +277,7 @@ int voSystem(Mat img1,Mat img2)
     orb->compute ( img1, keypoints1, descriptors1 );//根据角点位置计算 BRIEF 描述子
     orb->compute ( img2, keypoints2, descriptors2 );
 
-    imwrite("/home/lq/Pictures/firstImg.jpg", img1);
+    //imwrite("/home/lq/Pictures/firstImg.jpg", img1);
     Mat outimg1;
     //drawKeypoints( img1, keypoints1, outimg1, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
     //imshow("1",outimg1);
@@ -310,7 +293,7 @@ int voSystem(Mat img1,Mat img2)
     map.point=Point(0,0);
     map.angle=0;
     mapVector.push_back(map);
-    saveData(map.point, map.angle);
+    // saveData(map.point, map.angle);
 
 
     int mapSize=mapVector.size();
@@ -337,7 +320,7 @@ int voSystem(Mat img1,Mat img2)
         map.keypoint.assign(keypoints2.begin(),keypoints2.end());//复制角点到kt
         map.descriptors=descriptors2.clone();//复制描述子
         mapVector.push_back(map);
-        saveData(mapVector[mapSize-1].point,mapVector[mapSize-1].angle);//FPS=18 ,两分钟30kb
+        // saveData(mapVector[mapSize-1].point,mapVector[mapSize-1].angle);//FPS=18 ,两分钟30kb
     }
 
     // vector< DMatch > tempMatches;
@@ -411,10 +394,8 @@ int main(int argc, char** argv)
     //创建publisher
     pub = nh.advertise<vslam::position>("position_info", 1);
 
-    Mat img1 = imread("/home/lq/Pictures/light.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
-    Mat img2 = imread("/home/lq/Pictures/black.jpg",CV_LOAD_IMAGE_COLOR );
-    // Mat img1 = imread("/home/lq/Pictures/lenna1.bmp", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
-    // Mat img2 = imread("/home/lq/Pictures/lenna2.bmp",CV_LOAD_IMAGE_COLOR );
+    Mat img1 = imread("/home/lq/Pictures/empty1.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
+    Mat img2 = imread("/home/lq/Pictures/empty2.jpg",CV_LOAD_IMAGE_COLOR );
     voSystem(img1,img2);
 
     //voSystem();

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>orb</name>
+  <name>detector</name>
   <version>0.0.0</version>
   <description>The orb package</description>
 

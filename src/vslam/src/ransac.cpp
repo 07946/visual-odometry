@@ -5,10 +5,6 @@
 //#include <std_msgs/Float32.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
-#include <opencv2/features2d/features2d.hpp>
-#include <opencv2/calib3d/calib3d.hpp> // for homography
-#include <opencv2/opencv_modules.hpp>
-#include <opencv2/xfeatures2d.hpp>
 using namespace cv;
 using namespace std;
 
@@ -140,20 +136,13 @@ float windowFilter(vector<float> &v)
 int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &keypoints2,Mat &descriptors2,vector< DMatch > &good_matches, myMap &map)
 {  
     //-- 第三步: 对两幅图像中的BRIEF描述子进行匹配,使用 Hamming 距离
-
     vector<DMatch> matches;
     BFMatcher matcher(NORM_HAMMING );
-      cv::TickMeter tm;
-   tm.reset();
-   tm.start();
     matcher.match (descriptors1, descriptors2,matches);
-        tm.stop();
-    ROS_INFO("matchtime=%lf",tm.getTimeSec());
 
     //-- 第四步:匹配点对筛选，并取中间三分这部分计算旋转散席
     double min_dist=10000;
     int minDex=0;
-
     // 找出所有匹配之间的最小距离
     for ( int i = 0; i < descriptors1.rows; i++ )
     {
@@ -164,17 +153,15 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
             minDex=i;
         }
     }
-    tm.reset();
-   tm.start();
     // 当描述子之间的距离大于两倍的最小距离时,即认为匹配有误。
     // 但有时候最小距离会非常小,设置一个经验值作为下限。
     vector<sortAngle>radVector;
     
     for ( int i = 0; i < descriptors1.rows; i++ )
     {
-        if ( matches[i].distance <= max( 2*min_dist,10000.0 ) )//5 效果好但要求特征明显，30角度可以，但位移不行
+        if ( matches[i].distance <= max( 2*min_dist,50.0 ) )//5 效果好但要求特征明显，30角度可以，但位移不行
         {
-            //good_matches.push_back ( matches[i] );
+            good_matches.push_back ( matches[i] );
             sortAngle sa;
             sa.angle=minAngle(keypoints2[matches[i].trainIdx].angle-keypoints1[i].angle); 
             sa.index=i;
@@ -193,8 +180,8 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
         return -1;
     }
     sort(radVector.begin(),radVector.end(),sortFun);
-    //for(int i=0;i<radVector.size();i++)
-        //ROS_INFO("rotate=%f",radVector[i].angle);
+    for(int i=0;i<radVector.size();i++)
+        ROS_INFO("rotate=%f",radVector[i].angle);
 
     int wlen=(radVector.size()+2)/3;
     float minErr=10000.0;
@@ -212,8 +199,6 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
             minErrIdx=i;
         }
     }
-
- 
     //ROS_INFO("rotate=%f",radVector[radVector.size()].angle-radVector[i].angle);
 
     //计算平均旋转角
@@ -226,13 +211,12 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
 
     for(int i=0;i<wlen;i++)
     {
-        good_matches.push_back(matches[radVector[minErrIdx+i].index]);
+        //good_matches.push_back(matches[radVector[minErrIdx+i].index]);
         //ROS_INFO("deg=%f,indx=%d",radVector[minErrIdx+i].angle*180/3.14159,radVector[minErrIdx+i].index);
     }
-        tm.stop();
-    ROS_INFO("slidetime=%lf",tm.getTimeSec());   
+        
     map.angle+=rotateMean;//全局旋转角
-    //ROS_INFO("rotateAngle=%f,realAngle=%f",rotateMean,map.angle);
+    ROS_INFO("rotateAngle=%f,realAngle=%f",rotateMean,map.angle);
 
     //计算前后两个图的相对位移，其相对位移等于第二个图的坐标原点在第一个图的坐标
     Point tempPint=Point(0,0);
@@ -249,9 +233,7 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     map.point=easyTf(mapVector[mapVector.size()-1].point,drift,deg2rad(map.angle),0,0);;
     // map.keypoint.assign(keypoints2.begin(),keypoints2.end());//复制角点到kt
     // map.descriptors=descriptors2.clone();//复制描述子
-    //ROS_INFO("drift=(%d,%d),pos=(%d,%d)",drift.x,drift.y,map.point.x,map.point.y);
-
-
+    ROS_INFO("drift=(%d,%d),pos=(%d,%d)",drift.x,drift.y,map.point.x,map.point.y);
 
 }
 
@@ -269,10 +251,7 @@ int voSystem(Mat img1,Mat img2)
         ROS_ERROR("imread error");
         return -1;
     }
-        
-   cv::TickMeter tm;
-   tm.reset();
-   tm.start();
+
     //初始化
     vector<KeyPoint> keypoints1, keypoints2;
     Mat descriptors1, descriptors2;
@@ -289,8 +268,6 @@ int voSystem(Mat img1,Mat img2)
     orb->compute ( img1, keypoints1, descriptors1 );//根据角点位置计算 BRIEF 描述子
     orb->compute ( img2, keypoints2, descriptors2 );
 
-    // tm.stop();
-    // ROS_INFO("orb_time=%lf",tm.getTimeSec());//显示帧率
     //imwrite("/home/lq/Pictures/firstImg.jpg", img1);
     Mat outimg1;
     //drawKeypoints( img1, keypoints1, outimg1, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
@@ -313,17 +290,77 @@ int voSystem(Mat img1,Mat img2)
     int mapSize=mapVector.size();
     vector< DMatch > good_matches;
     analyze(keypoints1,descriptors1,keypoints2,descriptors2,good_matches,map);
-    //ROS_INFO("angle=%.2f,pos=(%d,%d)",map.angle,map.point.x,map.point.y);
+    ROS_INFO("angle=%.2f,pos=(%d,%d)",map.angle,map.point.x,map.point.y);
     char text[100];
     //sprintf(text,"angle=%.2f,pos=(%d,%d)",map.angle,map.point.x,map.point.y);
     Mat img_goodmatch;
     drawMatches (img1, keypoints1, img2, keypoints2, good_matches, img_goodmatch);
-    //imwrite("/home/lq/Pictures/goodMatch.jpg", img_goodmatch);
+    imwrite("/home/lq/Pictures/goodMatch.jpg", img_goodmatch);
     //putText(img_goodmatch, text,Point(600,30), cv::FONT_HERSHEY_TRIPLEX, 0.7, cv::Scalar(0, 255, 0), 1);
-    //imshow ("orb match", img_goodmatch);
+    imshow ("orb match", img_goodmatch);
 
-    //ROS_INFO("goodAngle=%.2f,goodPos=(%d,%d)",map.angle,map.point.x,map.point.y);
+    ROS_INFO("goodAngle=%.2f,goodPos=(%d,%d)",map.angle,map.point.x,map.point.y);
     //map.point=windowFilter(goodPoint);
+
+    cv::TickMeter tm;
+        tm.reset();
+		tm.start();
+     //RANSAC 消除误匹配特征点 主要分为三个部分：
+    //1）根据matches将特征点对齐,将坐标转换为float类型
+    //2）使用求基础矩阵方法 findFundamentalMat,得到RansacStatus
+    //3）根据RansacStatus来将误匹配的点也即RansacStatus[i]=0的点删除
+
+    //根据matches将特征点对齐,将坐标转换为float类型
+    vector<KeyPoint> R_keypoint01,R_keypoint02;
+    for (size_t i=0;i<good_matches.size();i++)   
+    {
+        R_keypoint01.push_back(keypoints1[good_matches[i].queryIdx]);
+        R_keypoint02.push_back(keypoints2[good_matches[i].trainIdx]);
+        //这两句话的理解：R_keypoint1是要存储img01中能与img02匹配的特征点，
+        //matches中存储了这些匹配点对的img01和img02的索引值
+    }
+
+    //坐标转换
+    vector<Point2f>p01,p02;
+    for (size_t i=0;i<good_matches.size();i++)
+    {
+        p01.push_back(R_keypoint01[i].pt);
+        p02.push_back(R_keypoint02[i].pt);
+    }
+
+    //利用基础矩阵剔除误匹配点
+    vector<uchar> RansacStatus;
+    Mat Fundamental= findFundamentalMat(p01,p02,RansacStatus,FM_RANSAC);
+
+
+    vector<KeyPoint> RR_keypoint01,RR_keypoint02;
+    vector<DMatch> RR_matches;            //重新定义RR_keypoint 和RR_matches来存储新的关键点和匹配矩阵
+    int index=0;
+    for (size_t i=0;i<good_matches.size();i++)
+    {
+        if (RansacStatus[i]!=0)
+        {
+            RR_keypoint01.push_back(R_keypoint01[i]);
+            RR_keypoint02.push_back(R_keypoint02[i]);
+            good_matches[i].queryIdx=index;
+            good_matches[i].trainIdx=index;
+            RR_matches.push_back(good_matches[i]);
+            index++;
+        }
+    }
+    tm.stop();
+    ROS_INFO("ransacTime=%lf",tm.getTimeSec());
+
+
+    Mat img_RR_matches;
+    drawMatches(img1,RR_keypoint01,img2,RR_keypoint02,RR_matches,img_RR_matches);
+    ROS_INFO("Goodmatch.size=%d,Ransac cnt=%d",good_matches.size(),RR_matches.size());
+    imshow("ransac",img_RR_matches);
+    imwrite("/home/lq/Pictures/ransac.jpg", img_RR_matches);
+
+
+
+
 
 
     
@@ -347,62 +384,7 @@ int voSystem(Mat img1,Mat img2)
     // tempData.angle=tempData.angle;
     // simplePose.push_back(tempData);
     
-    tm.stop();
-    ROS_INFO("real_time=%lf",tm.getTimeSec());
-
-    
-//    tm.reset();
-//    tm.start();
-
-//     cv::Ptr<cv::FeatureDetector> detector;
-//     detector = cv::xfeatures2d::SURF::create();
-//     std::vector<cv::KeyPoint> objectKeypoints;
-// 	std::vector<cv::KeyPoint> sceneKeypoints;
-// 	cv::Mat objectDescriptors;
-// 	cv::Mat sceneDescriptors;
-//     detector->detect(img1, objectKeypoints);
-//     detector->detect(img2, sceneKeypoints);
-//     cv::Ptr<cv::DescriptorExtractor> extractor;
-//     extractor = cv::xfeatures2d::SURF::create();
-//     extractor->compute(img1, objectKeypoints, objectDescriptors);
-//     extractor->compute(img2, sceneKeypoints, sceneDescriptors);
-//     //Mat outimg2;
-//     //drawKeypoints( img1, objectKeypoints, outimg2, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
-//     //drawKeypoints( img2, sceneKeypoints, outimg2, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
-//     //imshow("1",outimg2);
-    
-
-//     tm.stop();
-//     ROS_INFO("surf_time=%lf",tm.getTimeSec());
-
-//     vector<DMatch> matches;
-//     Mat matchImage;
-//     //FlannBasedMatcher matcher;
-//     BFMatcher matcher(cv::NORM_L2);
-//     matcher.match (objectDescriptors, sceneDescriptors,matches);
-
-//     // vector<DMatch> surf_matches;
-//     // for ( int i = 0; i < objectDescriptors.rows; i++ )
-//     // {
-//     //     if ( matches[i].distance <= 0.08 )
-//     //     {
-//     //         surf_matches.push_back ( matches[i] );
-//     //     }
-//     // }
-//     ROS_INFO("%ld",matches.size());
-
-//     drawMatches(img1, objectKeypoints, img2, sceneKeypoints, matches, matchImage);
-//     imwrite("/home/lq/Pictures/surfImg.jpg", matchImage);
-    //imshow("Match", matchImage);
-    // BFMatcher matcher(cv::NORM_L2);
-    // vector<DMatch>matches;
-    // matcher.match(objectDescriptors, sceneDescriptors, matches);
-    
-    // waitKey(10);
-
-
-
-
+    waitKey(10);
 }
 
 //回调函数
@@ -468,17 +450,13 @@ int main(int argc, char** argv)
     voSystem(img1,img2);
 
     //voSystem();
-    cv::TickMeter tm;
-    //ros::Rate loop_rate(0.5);
+    
+    ros::Rate loop_rate(0.5);
     while (ros::ok())
     {
-        tm.reset();
-        tm.start();
         voSystem(img1,img2);
-        tm.stop();
-        ROS_INFO("real_all_time=%lf",tm.getTimeSec());
         //ros::spin();
-        //loop_rate.sleep();
+        loop_rate.sleep();
     }
     
     return 0;

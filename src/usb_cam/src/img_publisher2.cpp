@@ -8,52 +8,46 @@
  
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "img_publisher");
+  ros::init(argc, argv, "img_publisher2");
   ros::NodeHandle nh;
   image_transport::ImageTransport it(nh);
   image_transport::Publisher pub = it.advertise("camera/image", 1);
   
-  cv::VideoCapture cap;
   cv::Mat frame;
-  int deviceID=0;
-  if(argc>1)
-	deviceID=argv[1][0]-'0';
-  int apiID=cv::CAP_ANY;//自动搜索ID
-  cap.open(deviceID+apiID);
-  if(!cap.isOpened()){
-	  ROS_ERROR("camera open err");
-	  return -1;
-  }
-
-  //只能使用摄像头支持的几种分辨率
-  // cap.set(CV_CAP_PROP_FRAME_WIDTH, 1280);
-  // cap.set(CV_CAP_PROP_FRAME_HEIGHT, 720);
+  ros::Rate loop_rate(1);//虽然要120帧，但还取决于摄像头本身帧率
   
- 
-  ros::Rate loop_rate(18);//虽然要120帧，但还取决于摄像头本身帧率
-	
+
   ROS_INFO("ready to publish");
   cv::TickMeter tm;
 
   int tempCnt=0;
-
+  bool cg=true;
+  cv::Mat img1 = cv::imread("/home/lq/Pictures/empty3.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
+  cv::Mat img2 = cv::imread("/home/lq/Pictures/empty4.jpg",CV_LOAD_IMAGE_COLOR );
 
   while (nh.ok())
   {
     tempCnt++;
     tm.reset();
-		tm.start();
-	  cap.read(frame);//获取每一帧
-	  if(!frame.empty())
+	tm.start();
+    sensor_msgs::ImagePtr msg;
+	if(cg)
     {
       
-		  sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
-      //if(tempCnt<10)
-		    pub.publish(msg);
-        //loop_rate.sleep();
-        tm.stop();
-        ROS_INFO("fps=%.0f,cols=%d,rows=%d",1/tm.getTimeSec(),frame.cols,frame.rows);//显示帧率
+		   msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img1).toImageMsg();
+
   	}
+    else
+    {    
+		  msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img2).toImageMsg();
+    }
+    //if(tempCnt<10)
+	pub.publish(msg);
+    
+    tm.stop();
+    ROS_INFO("fps=%.0f,cols=%d,rows=%d",1/tm.getTimeSec(),frame.cols,frame.rows);//显示帧率
+    cg=!cg;
+    loop_rate.sleep();
 
 
     //以下为测试用
@@ -66,10 +60,7 @@ int main(int argc, char** argv)
     //   sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
     //   loop_rate.sleep();
 		//   pub.publish(msg);
-    // }
-
-    
-    
+    // } 
   }
   return 0;
 }

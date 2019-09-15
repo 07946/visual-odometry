@@ -13,8 +13,8 @@ using namespace std;
 ros::Publisher pub;
 vslam::position cam_pos;
 Point savePoint=Point(0,0);
-int lenx=640;//640
-int leny=480;//480
+int lenx=640;
+int leny=480;
 //存储某个坐标的信息，以后使用
 struct myMap
 {
@@ -128,8 +128,63 @@ int windowFilter(vector<sortData> &v,int wlen)
     return minErrIdx;
 }
 
-int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &keypoints2,Mat &descriptors2,vector< DMatch > &good_matches, myMap &map)
+vector<KeyPoint> keypointsLast;
+Mat descriptorLast;
+vector<simpleDate>simplePose;
+int voSystem(Mat img1,Mat img2)
 {  
+    myMap map;
+    if(img1.empty()||img2.empty())
+    {
+        ROS_ERROR("imread error");
+        return -1;
+    }
+
+    //初始化
+    vector<KeyPoint> keypoints1, keypoints2;
+    Mat descriptors1, descriptors2;
+    //Ptr<ORB> orb = ORB::create (500, 1.2f, 8, 91, 0, 2, ORB::HARRIS_SCORE,91,20 );//效果好
+    Ptr<ORB> orb = ORB::create (500, 1.2f, 8, 31, 0, 2, ORB::HARRIS_SCORE,31,20 );//即patchsize需要大，由于像素的不确定性，所以灰度质心法半径要大
+    //-- 第一，二步: 检测 Oriented FAST 角点位置，根据角点位置计算 BRIEF 描述子
+    orb->detect ( img2,keypoints2 );
+    if(keypoints2.size()==0)
+    {
+        ROS_ERROR("have no keypoint");
+        return -1;
+    }
+
+    orb->compute ( img2, keypoints2, descriptors2 );
+
+    //第一副图
+    if(mapVector.size()==0)
+    {
+        imwrite("/home/lq/Pictures/firstImg.jpg", img1);
+        orb->detect ( img1,keypoints1 );//检测 Oriented FAST 角点位置
+        orb->compute ( img1, keypoints1, descriptors1 );//根据角点位置计算 BRIEF 描述子
+        //存储初始点数据
+        map.keypoint.assign(keypoints1.begin(),keypoints1.end());//复制角点到kt
+        keypointsLast.assign(keypoints1.begin(),keypoints1.end()); 
+
+        map.descriptors=descriptors1.clone();//复制描述子
+        descriptorLast=descriptors1.clone();
+
+        map.point=Point(0,0);
+        map.angle=0;
+        mapVector.push_back(map);
+        saveData(map.point, map.angle);
+    }
+    else
+    {
+        // orb->detect ( img1,keypoints1 );//检测 Oriented FAST 角点位置
+        // orb->compute ( img1, keypoints1, descriptors1 );//根据角点位置计算 BRIEF 描述子
+        keypoints1.assign(mapVector[mapVector.size()-1].keypoint.begin(),mapVector[mapVector.size()-1].keypoint.end());
+        descriptors1=mapVector[mapVector.size()-1].descriptors.clone();
+        map.angle=mapVector[mapVector.size()-1].angle;
+
+    }
+
+    int mapSize=mapVector.size();
+    vector< DMatch > good_matches;
     //-- 第三步: 对两幅图像中的BRIEF描述子进行匹配,使用 Hamming 距离
     vector<DMatch> matches;
     BFMatcher matcher(NORM_HAMMING );
@@ -173,8 +228,8 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
         return -1;
     }
     sort(radVector.begin(),radVector.end(),sortFun);
-    for(int i=0;i<radVector.size();i++)
-        ROS_INFO("rotate=%f",radVector[i].data);
+    // for(int i=0;i<radVector.size();i++)
+    //     ROS_INFO("rotate=%f",radVector[i].data);
 
     int wlen=(radVector.size()+1)/2;//加2是为了比如只有1个特征点，长度为1
     float minErrIdx=windowFilter(radVector,wlen);
@@ -206,7 +261,7 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
         dxVector.push_back(dx);
         dyVector.push_back(dy);
 
-        ROS_INFO("(%d,%d)",p.x,p.y);
+        //ROS_INFO("(%d,%d)",p.x,p.y);
         //ROS_INFO("QURE=%d",good_matches[i].queryIdx);
 
     }
@@ -225,7 +280,7 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     {
         //goodX_matches.push_back(goodA_matches[dxVector[minDxIdx+i].index]);
         dyVector2.push_back(dyVector[dxVector[minDxIdx+i].index]);
-        ROS_INFO("dx=%f",dxVector[minDxIdx+i].data);
+        //ROS_INFO("dx=%f",dxVector[minDxIdx+i].data);
         rx+=dxVector[minDxIdx+i].data;
         //ROS_INFO("deg=%f,indx=%d",radVector[minErrIdx+i].angle*180/3.14159,radVector[minErrIdx+i].index);
     }
@@ -242,10 +297,8 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     for(int i=0;i<ylen;i++)
     {
         good_matches.push_back(goodA_matches[dyVector2[minDyIdx+i].index]);
-        ROS_INFO("dy=%f",dyVector2[minDyIdx+i].data);
-        
+        //ROS_INFO("dy=%f",dyVector2[minDyIdx+i].data);     
         ry+=dyVector2[minDyIdx+i].data;
-        //ROS_INFO("deg=%f,indx=%d",radVector[minErrIdx+i].angle*180/3.14159,radVector[minErrIdx+i].index);
     }
     for(int i=0;i<ylen;i++)
         rAngle+=minAngle(keypoints2[good_matches[i].trainIdx].angle-keypoints1[good_matches[i].queryIdx].angle);
@@ -253,83 +306,25 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     ry/=ylen;
     rAngle/=ylen;
 
-    map.angle=rAngle;
+    map.angle+=rAngle;
     Point drift;//位移
     drift.x=rx;
     drift.y=ry;
     //把第二个图的坐标原点在第一个图的坐标转换成世界坐标
     map.point=easyTf(mapVector[mapVector.size()-1].point,drift,deg2rad(map.angle),0,0);;
-    // map.keypoint.assign(keypoints2.begin(),keypoints2.end());//复制角点到kt
-    // map.descriptors=descriptors2.clone();//复制描述子
-    ROS_INFO("drift=(%d,%d),pos=(%d,%d)",drift.x,drift.y,map.point.x,map.point.y);
+    ROS_INFO("relative_angle=%.2f,drift=(%d,%d)",rAngle,drift.x,drift.y);
 
-}
-
-
-vector<KeyPoint> keypointsLast;
-Mat descriptorLast;
-vector<simpleDate>simplePose;
-int voSystem(Mat img1,Mat img2)
-{
-    myMap map;
-    if(img1.empty()||img2.empty())
-    {
-        ROS_ERROR("imread error");
-        return -1;
-    }
-
-    //初始化
-    vector<KeyPoint> keypoints1, keypoints2;
-    Mat descriptors1, descriptors2;
-    //Ptr<ORB> orb = ORB::create (500, 1.2f, 8, 91, 0, 2, ORB::HARRIS_SCORE,91,20 );//效果好
-    Ptr<ORB> orb = ORB::create (500, 1.2f, 8, 31, 0, 2, ORB::HARRIS_SCORE,31,20 );//即patchsize需要大，由于像素的不确定性，所以灰度质心法半径要大
-    //-- 第一，二步: 检测 Oriented FAST 角点位置，根据角点位置计算 BRIEF 描述子
-    orb->detect ( img1,keypoints1 );//检测 Oriented FAST 角点位置
-    orb->detect ( img2,keypoints2 );
-    if(keypoints2.size()==0)
-    {
-        ROS_ERROR("have no keypoint");
-        return -1;
-    }
-    orb->compute ( img1, keypoints1, descriptors1 );//根据角点位置计算 BRIEF 描述子
-    orb->compute ( img2, keypoints2, descriptors2 );
-
-    imwrite("/home/lq/Pictures/firstImg.jpg", img1);
-    Mat outimg1;
-    //drawKeypoints( img1, keypoints1, outimg1, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
-    //imshow("1",outimg1);
-    
-        //存储初始点数据
-        
-    map.keypoint.assign(keypoints1.begin(),keypoints1.end());//复制角点到kt
-    keypointsLast.assign(keypoints1.begin(),keypoints1.end()); 
-
-    map.descriptors=descriptors1.clone();//复制描述子
-    descriptorLast=descriptors1.clone();
-
-    map.point=Point(0,0);
-    map.angle=0;
-    mapVector.push_back(map);
-    saveData(map.point, map.angle);
-
-
-    int mapSize=mapVector.size();
-    vector< DMatch > good_matches;
-    analyze(keypoints1,descriptors1,keypoints2,descriptors2,good_matches,map);
-    ROS_INFO("angle=%.2f,pos=(%d,%d)",map.angle,map.point.x,map.point.y);
     char text[100];
-    //sprintf(text,"angle=%.2f,pos=(%d,%d)",map.angle,map.point.x,map.point.y);
+    sprintf(text,"angle=%.2f,pos=(%d,%d)",map.angle,map.point.x,map.point.y);
     Mat img_goodmatch;
     drawMatches (img1, keypoints1, img2, keypoints2, good_matches, img_goodmatch);
-    imwrite("/home/lq/Pictures/goodMatch.jpg", img_goodmatch);
-    //putText(img_goodmatch, text,Point(600,30), cv::FONT_HERSHEY_TRIPLEX, 0.7, cv::Scalar(0, 255, 0), 1);
+    putText(img_goodmatch, text,Point(600,30), cv::FONT_HERSHEY_TRIPLEX, 0.7, cv::Scalar(0, 255, 0), 1);
     imshow ("orb match", img_goodmatch);
 
     ROS_INFO("goodAngle=%.2f,goodPos=(%d,%d)",map.angle,map.point.x,map.point.y);
     //map.point=windowFilter(goodPoint);
 
-
-    
+    //限制一下位移和角度，避免严重错误
     if((abs(map.angle-mapVector[mapSize-1].angle)>2&&abs(map.angle-mapVector[mapSize-1].angle)<10)
     ||(abs(map.point.x-mapVector[mapSize-1].point.x)>10&&abs(map.point.x-mapVector[mapSize-1].point.x<100))
     ||(abs(map.point.y-mapVector[mapSize-1].point.y)>10&&abs(map.point.y-mapVector[mapSize-1].point.y)<100))
@@ -350,8 +345,14 @@ int voSystem(Mat img1,Mat img2)
     // tempData.angle=tempData.angle;
     // simplePose.push_back(tempData);
     
-    waitKey(10);
+    waitKey(1);
+
 }
+
+
+
+
+
 
 //回调函数
 void imageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -402,7 +403,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "record");
+    ros::init(argc, argv, "vslam2");
     ros::NodeHandle nh;//也有初始化node的作用
     //订阅主题，接收摄像头结点发来的图片
     image_transport::ImageTransport it(nh);
@@ -411,20 +412,12 @@ int main(int argc, char** argv)
     //创建publisher
     pub = nh.advertise<vslam::position>("position_info", 1);
 
-    Mat img1 = imread("/home/lq/Pictures/light.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
-    Mat img2 = imread("/home/lq/Pictures/black.jpg",CV_LOAD_IMAGE_COLOR );
-    // Mat img1 = imread("/home/lq/Pictures/lenna1.bmp", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
-    // Mat img2 = imread("/home/lq/Pictures/lenna2.bmp",CV_LOAD_IMAGE_COLOR );
-    voSystem(img1,img2);
-
     //voSystem();
     
-    ros::Rate loop_rate(0.5);
+    ros::Rate loop_rate(30);
     while (ros::ok())
     {
-        voSystem(img1,img2);
-        //ros::spin();
-        loop_rate.sleep();
+        ros::spin();
     }
     
     return 0;

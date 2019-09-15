@@ -378,7 +378,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "vslam");
+    ros::init(argc, argv, "vslam2");
     ros::NodeHandle nh;//也有初始化node的作用
     //订阅主题，接收摄像头结点发来的图片
     image_transport::ImageTransport it(nh);
