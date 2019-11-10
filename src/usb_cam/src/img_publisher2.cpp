@@ -22,8 +22,8 @@ int main(int argc, char** argv)
 
   int tempCnt=0;
   bool cg=true;
-  cv::Mat img1 = cv::imread("/home/lq/Pictures/empty3.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
-  cv::Mat img2 = cv::imread("/home/lq/Pictures/empty4.jpg",CV_LOAD_IMAGE_COLOR );
+  cv::Mat img1 = cv::imread("/home/lq/Pictures/empty1.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
+  cv::Mat img2 = cv::imread("/home/lq/Pictures/empty2.jpg",CV_LOAD_IMAGE_COLOR );
 
   while (nh.ok())
   {
@@ -45,7 +45,7 @@ int main(int argc, char** argv)
 	pub.publish(msg);
     
     tm.stop();
-    ROS_INFO("fps=%.0f,cols=%d,rows=%d",1/tm.getTimeSec(),frame.cols,frame.rows);//显示帧率
+    ROS_INFO("fps=%.0f,cols=%d,rows=%d",1/tm.getTimeSec(),img1.cols,img1.rows);//显示帧率
     cg=!cg;
     loop_rate.sleep();
 

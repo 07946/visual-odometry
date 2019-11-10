@@ -34,7 +34,7 @@ int readData()
 
     traceData t;
     ifstream  inFile;
-    inFile.open("/home/lq/Pictures/beautiful.txt");
+    inFile.open("/home/lq/Pictures/v3p.txt");
     if (!inFile.is_open()){
 		cout << "open File Failed." << endl;
 		return -1;
@@ -102,7 +102,7 @@ void analyzeTrace(visualization_msgs::Marker &points,visualization_msgs::Marker 
     for(int i=0;i<traceVector.size();i++)
     {
         line_strip.points.push_back(traceVector[i].point);
-       // points.points.push_back(traceVector[i].point);
+        points.points.push_back(traceVector[i].point);
     }
     
     //放置路标

@@ -1,0 +1,8 @@
+prefix=/home/lq/Documents/visual-odometry/install
+
+Name: detector
+Description: Description of detector
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/lq/Documents/visual-odometry/install/lib 
+Requires: 

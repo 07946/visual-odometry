@@ -159,15 +159,15 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     
     for ( int i = 0; i < descriptors1.rows; i++ )
     {
-        if ( matches[i].distance <= max( 2*min_dist,50.0 ) )//5 效果好但要求特征明显，30角度可以，但位移不行
-        {
+        // if ( matches[i].distance <= max( 2*min_dist,50.0 ) )//5 效果好但要求特征明显，30角度可以，但位移不行
+        // {
             good_matches.push_back ( matches[i] );
             sortAngle sa;
             sa.angle=minAngle(keypoints2[matches[i].trainIdx].angle-keypoints1[i].angle); 
             sa.index=i;
             radVector.push_back(sa);
             //ROS_INFO("rotate=%f",sa.angle);
-        }
+        // }
     }
 
 
@@ -180,10 +180,10 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
         return -1;
     }
     sort(radVector.begin(),radVector.end(),sortFun);
-    for(int i=0;i<radVector.size();i++)
-        ROS_INFO("rotate=%f",radVector[i].angle);
+    // for(int i=0;i<radVector.size();i++)
+    //     ROS_INFO("rotate=%f",radVector[i].angle);
 
-    int wlen=(radVector.size()+2)/3;
+    int wlen=(radVector.size()+1)/2;
     float minErr=10000.0;
     
     float minErrIdx=0;
@@ -203,8 +203,8 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
 
     //计算平均旋转角
     float rotateMean=0;
-    for(int i=minErrIdx;i<minErrIdx+wlen;i++)
-        rotateMean+=radVector[i].angle;
+    // for(int i=minErrIdx;i<minErrIdx+wlen;i++)
+    //     rotateMean+=radVector[i].angle;
     rotateMean/=wlen;
     //ROS_INFO("acc=%f",minErr);
 
@@ -297,7 +297,7 @@ int voSystem(Mat img1,Mat img2)
     drawMatches (img1, keypoints1, img2, keypoints2, good_matches, img_goodmatch);
     imwrite("/home/lq/Pictures/goodMatch.jpg", img_goodmatch);
     //putText(img_goodmatch, text,Point(600,30), cv::FONT_HERSHEY_TRIPLEX, 0.7, cv::Scalar(0, 255, 0), 1);
-    imshow ("orb match", img_goodmatch);
+    //imshow ("orb match", img_goodmatch);
 
     ROS_INFO("goodAngle=%.2f,goodPos=(%d,%d)",map.angle,map.point.x,map.point.y);
     //map.point=windowFilter(goodPoint);

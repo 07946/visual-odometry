@@ -30,6 +30,10 @@ int surf(Mat img1,Mat img2)
 	cv::Mat sceneDescriptors;
     detector->detect(img1, objectKeypoints);
     detector->detect(img2, sceneKeypoints);
+
+     Mat outimg1;
+    drawKeypoints( img1, objectKeypoints, outimg1, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+    imwrite("/home/lq/Pictures/surfn.jpg", outimg1);
     cv::Ptr<cv::DescriptorExtractor> extractor;
     extractor = cv::xfeatures2d::SURF::create();
     extractor->compute(img1, objectKeypoints, objectDescriptors);

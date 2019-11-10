@@ -1,0 +1,8 @@
+prefix=/home/lq/Documents/visual-odometry/devel
+
+Name: usb_cam
+Description: Description of usb_cam
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/lq/Documents/visual-odometry/devel/lib 
+Requires: 

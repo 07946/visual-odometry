@@ -115,7 +115,7 @@ float windowFilter(vector<float> &v)
     float minErr=10000.0;
     float minErrIdx=0;
 
-    for(int i=0;i<v.size()-wlen;i++)
+    for(int i=0;i<=v.size()-wlen;i++)
     {
         float err=v[i+wlen-1]-v[i];
         //ROS_INFO("acc=%f",accum);

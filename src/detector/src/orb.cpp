@@ -87,8 +87,8 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "image_publisher");
     ros::NodeHandle nh;//也有初始化node的作用
-    Mat img1 = imread("/home/lq/Pictures/empty1.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
-    Mat img2 = imread("/home/lq/Pictures/empty2.jpg",CV_LOAD_IMAGE_COLOR );
+    Mat img1 = imread("/home/lq/Pictures/lenna1.bmp", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
+    Mat img2 = imread("/home/lq/Pictures/lenna2.bmp",CV_LOAD_IMAGE_COLOR );
     myMap map;
     int lenx=img1.cols;
     int leny=img1.rows;
@@ -115,6 +115,7 @@ int main(int argc, char** argv)
     map.descriptors=descriptors1.clone();//复制描述子
     // Mat outimg1;
     // drawKeypoints( img1, keypoints1, outimg1, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+    // imwrite("/home/lq/Pictures/orbn.jpg", outimg1);
     // imshow("ORB",outimg1);
 
     //-- 第三步: 对两幅图像中的BRIEF描述子进行匹配,使用 Hamming 距离

@@ -1,0 +1,2 @@
+detector:draw_line:usb_cam:vslam
+-DCMAKE_BUILD_TYPE=Debug -DCATKIN_DEVEL_PREFIX=/home/lq/Documents/visual-odometry/devel -DCMAKE_INSTALL_PREFIX=/home/lq/Documents/visual-odometry/install -G Unix Makefiles

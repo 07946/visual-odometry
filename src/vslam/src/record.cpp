@@ -115,7 +115,7 @@ int windowFilter(vector<sortData> &v,int wlen)
     float minErr=10000.0;
     float minErrIdx=0;
 
-    for(int i=0;i<v.size()-wlen;i++)
+    for(int i=0;i<=v.size()-wlen;i++)
     {
         float err=v[i+wlen-1].data-v[i].data;
         //ROS_INFO("acc=%f",accum);
@@ -151,7 +151,9 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     // 当描述子之间的距离大于两倍的最小距离时,即认为匹配有误。
     // 但有时候最小距离会非常小,设置一个经验值作为下限。
     vector<sortData>radVector;
-    
+    cv::TickMeter tm;
+    tm.reset();
+	tm.start();
     for ( int i = 0; i < descriptors1.rows; i++ )
     {
         if ( matches[i].distance <= max( 2*min_dist,50.0 ) )//5 效果好但要求特征明显，30角度可以，但位移不行
@@ -173,8 +175,8 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
         return -1;
     }
     sort(radVector.begin(),radVector.end(),sortFun);
-    for(int i=0;i<radVector.size();i++)
-        ROS_INFO("rotate=%f",radVector[i].data);
+    // for(int i=0;i<radVector.size();i++)
+    //     ROS_INFO("rotate=%f",radVector[i].data);
 
     int wlen=(radVector.size()+1)/2;//加2是为了比如只有1个特征点，长度为1
     float minErrIdx=windowFilter(radVector,wlen);
@@ -206,7 +208,7 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
         dxVector.push_back(dx);
         dyVector.push_back(dy);
 
-        ROS_INFO("(%d,%d)",p.x,p.y);
+        //ROS_INFO("(%d,%d)",p.x,p.y);
         //ROS_INFO("QURE=%d",good_matches[i].queryIdx);
 
     }
@@ -225,7 +227,7 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     {
         //goodX_matches.push_back(goodA_matches[dxVector[minDxIdx+i].index]);
         dyVector2.push_back(dyVector[dxVector[minDxIdx+i].index]);
-        ROS_INFO("dx=%f",dxVector[minDxIdx+i].data);
+        //ROS_INFO("dx=%f",dxVector[minDxIdx+i].data);
         rx+=dxVector[minDxIdx+i].data;
         //ROS_INFO("deg=%f,indx=%d",radVector[minErrIdx+i].angle*180/3.14159,radVector[minErrIdx+i].index);
     }
@@ -242,11 +244,14 @@ int analyze(vector<KeyPoint> &keypoints1,Mat &descriptors1,vector<KeyPoint> &key
     for(int i=0;i<ylen;i++)
     {
         good_matches.push_back(goodA_matches[dyVector2[minDyIdx+i].index]);
-        ROS_INFO("dy=%f",dyVector2[minDyIdx+i].data);
+        //ROS_INFO("dy=%f",dyVector2[minDyIdx+i].data);
         
         ry+=dyVector2[minDyIdx+i].data;
         //ROS_INFO("deg=%f,indx=%d",radVector[minErrIdx+i].angle*180/3.14159,radVector[minErrIdx+i].index);
     }
+
+    tm.stop();
+    ROS_INFO("myfilter_time=%lf",tm.getTimeSec());
     for(int i=0;i<ylen;i++)
         rAngle+=minAngle(keypoints2[good_matches[i].trainIdx].angle-keypoints1[good_matches[i].queryIdx].angle);
     rx/=xlen;
@@ -411,8 +416,8 @@ int main(int argc, char** argv)
     //创建publisher
     pub = nh.advertise<vslam::position>("position_info", 1);
 
-    Mat img1 = imread("/home/lq/Pictures/light.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
-    Mat img2 = imread("/home/lq/Pictures/black.jpg",CV_LOAD_IMAGE_COLOR );
+    Mat img1 = imread("/home/lq/Pictures/black.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
+    Mat img2 = imread("/home/lq/Pictures/light.jpg",CV_LOAD_IMAGE_COLOR );
     // Mat img1 = imread("/home/lq/Pictures/lenna1.bmp", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
     // Mat img2 = imread("/home/lq/Pictures/lenna2.bmp",CV_LOAD_IMAGE_COLOR );
     voSystem(img1,img2);

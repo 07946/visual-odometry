@@ -239,3 +239,19 @@ add_dependencies(vslam2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TA
 target_link_libraries(vslam2
   ${catkin_LIBRARIES}
 )
+
+add_executable(surfslam
+  src/surfslam.cpp
+)
+add_dependencies(surfslam ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(surfslam
+  ${catkin_LIBRARIES}
+)
+
+add_executable(localMap
+  src/localMap.cpp
+)
+add_dependencies(localMap ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(localMap
+  ${catkin_LIBRARIES}
+)

@@ -26,10 +26,15 @@ int sift(Mat img1,Mat img2)
     detector = cv::xfeatures2d::SIFT::create();
     std::vector<cv::KeyPoint> objectKeypoints;
 	std::vector<cv::KeyPoint> sceneKeypoints;
+    
 	cv::Mat objectDescriptors;
 	cv::Mat sceneDescriptors;
     detector->detect(img1, objectKeypoints);
     detector->detect(img2, sceneKeypoints);
+
+    Mat outimg1;
+    drawKeypoints( img1, objectKeypoints, outimg1, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+    imwrite("/home/lq/Pictures/siftn.jpg", outimg1);
     cv::Ptr<cv::DescriptorExtractor> extractor;
     extractor = cv::xfeatures2d::SIFT::create();
     extractor->compute(img1, objectKeypoints, objectDescriptors);
@@ -74,8 +79,8 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "siftTest");
     ros::NodeHandle nh;//也有初始化node的作用
 
-    Mat img1 = imread("/home/lq/Pictures/empty1.jpg", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
-    Mat img2 = imread("/home/lq/Pictures/empty2.jpg",CV_LOAD_IMAGE_COLOR );
+    Mat img1 = imread("/home/lq/Pictures/lenna1.bmp", CV_LOAD_IMAGE_COLOR);//CV_LOAD_IMAGE_GRAYSCALE灰度
+    Mat img2 = imread("/home/lq/Pictures/lenna2.bmp",CV_LOAD_IMAGE_COLOR );
 
     //voSystem();
     cv::TickMeter tm;

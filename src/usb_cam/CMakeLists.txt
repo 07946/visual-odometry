@@ -228,3 +228,11 @@ add_dependencies(img_publisher2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXP
 target_link_libraries(img_publisher2
   ${catkin_LIBRARIES}
 )
+
+add_executable(usb_cam
+  src/usb_cam.cpp
+)
+add_dependencies(usb_cam ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(usb_cam
+  ${catkin_LIBRARIES}
+)

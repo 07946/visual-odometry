@@ -1,0 +1,8 @@
+prefix=/home/lq/Documents/visual-odometry/devel
+
+Name: draw_line
+Description: Description of draw_line
+Version: 0.0.0
+Cflags: -I/home/lq/Documents/visual-odometry/devel/include
+Libs: -L/home/lq/Documents/visual-odometry/devel/lib 
+Requires: message_runtime

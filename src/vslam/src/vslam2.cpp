@@ -115,7 +115,7 @@ int windowFilter(vector<sortData> &v,int wlen)
     float minErr=10000.0;
     float minErrIdx=0;
 
-    for(int i=0;i<v.size()-wlen;i++)
+    for(int i=0;i<=v.size()-wlen;i++)
     {
         float err=v[i+wlen-1].data-v[i].data;
         //ROS_INFO("acc=%f",accum);
@@ -390,7 +390,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
         }
         imgPrior=cv_bridge::toCvShare(msg, "bgr8")->image.clone();
     //cv::imshow("a", cv_bridge::toCvShare(msg, "bgr8")->image);
-    //cv::waitKey(1);       
+    //cv::waitKey(1);        
     
   }
   catch (cv_bridge::Exception& e)
